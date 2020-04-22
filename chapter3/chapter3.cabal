@@ -1,0 +1,80 @@
+cabal-version: 1.12
+
+-- This file has been generated from package.yaml by hpack version 0.31.2.
+--
+-- see: https://github.com/sol/hpack
+--
+-- hash: 84a594975faaa059b02fbe84eb2cd7f93ad1671b7cfc70cb63a1d7b823c5168f
+
+name:           chapter3
+version:        0.1.0.0
+description:    Please see the README on GitHub at <https://github.com/githubuser/chapter3#readme>
+homepage:       https://github.com/githubuser/chapter3#readme
+bug-reports:    https://github.com/githubuser/chapter3/issues
+author:         Author name here
+maintainer:     example@example.com
+copyright:      2020 Author name here
+license:        BSD3
+license-file:   LICENSE
+build-type:     Simple
+extra-source-files:
+    README.md
+    ChangeLog.md
+
+source-repository head
+  type: git
+  location: https://github.com/githubuser/chapter3
+
+library
+  exposed-modules:
+      Lib
+  other-modules:
+      Paths_chapter3
+  hs-source-dirs:
+      src
+  build-depends:
+      aeson
+    , base >=4.7 && <5
+    , containers
+    , lens
+    , lens-aeson
+    , mtl
+    , text
+  default-language: Haskell2010
+
+executable chapter3-exe
+  main-is: Main.hs
+  other-modules:
+      Paths_chapter3
+  hs-source-dirs:
+      app
+  ghc-options: -threaded -rtsopts -with-rtsopts=-N
+  build-depends:
+      aeson
+    , base >=4.7 && <5
+    , chapter3
+    , containers
+    , lens
+    , lens-aeson
+    , mtl
+    , text
+  default-language: Haskell2010
+
+test-suite chapter3-test
+  type: exitcode-stdio-1.0
+  main-is: Spec.hs
+  other-modules:
+      Paths_chapter3
+  hs-source-dirs:
+      test
+  ghc-options: -threaded -rtsopts -with-rtsopts=-N
+  build-depends:
+      aeson
+    , base >=4.7 && <5
+    , chapter3
+    , containers
+    , lens
+    , lens-aeson
+    , mtl
+    , text
+  default-language: Haskell2010
