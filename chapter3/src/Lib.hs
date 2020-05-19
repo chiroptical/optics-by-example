@@ -348,3 +348,89 @@ fullName = lens getter setter
   getter user = view firstName user ++ " " ++ view lastName user
   setter user name =
     let (h : t) = words name in user { _firstName = h, _lastName = unwords t }
+
+-- 3.7 Data correction and maintaining invariants
+
+data Time =
+  Time { _hours :: Int
+       , _mins :: Int
+       } deriving Show
+
+clamp :: Ord a => a -> a -> a -> a
+clamp minVal maxVal = min maxVal . max minVal
+
+-- Naive lenses
+-- hours :: Lens' Time Int
+-- hours = lens getter setter
+--   where
+--     getter (Time h _) = h
+--     setter (Time _ m) newHours = Time (clamp 0 23 newHours) m
+
+-- mins :: Lens' Time Int
+-- mins = lens getter setter
+--   where
+--     getter (Time _ m) = m
+--     setter (Time h _) newMins = Time h (clamp 0 59 newMins)
+
+-- Including rollover
+hours :: Lens' Time Int
+hours = lens getter setter
+  where
+    getter (Time h _) = h
+    setter (Time _ m) newHours = Time (newHours `mod` 24) m
+
+mins :: Lens' Time Int
+mins = lens getter setter
+  where
+    getter (Time _ m) = m
+    setter (Time h _) newMins =
+      Time ((h + (newMins `div` 60)) `mod` 24) (newMins `mod` 60)
+
+-- Exercises - Self-Correcting Lenses
+
+data ProducePrices =
+  ProducePrices { _limePrice :: Float
+                , _lemonPrice :: Float
+                } deriving Show
+
+-- setters which avoid negative values
+
+limePrice' :: Lens' ProducePrices Float
+limePrice' = lens getter setter
+  where
+    getter = _limePrice
+    setter pps newPrice
+      | newPrice > 0 = pps { _limePrice = newPrice }
+      | otherwise = pps { _limePrice = 0 }
+
+lemonPrice' :: Lens' ProducePrices Float
+lemonPrice' = lens getter setter
+  where
+    getter = _lemonPrice
+    setter pps newPrice
+      | newPrice > 0 = pps { _lemonPrice = newPrice }
+      | otherwise = pps { _lemonPrice = 0 }
+
+-- setters which avoid changes of greater than 50 cents
+
+limePrice :: Lens' ProducePrices Float
+limePrice = lens getter setter
+  where
+    getter = _limePrice
+    setter pps newPrice =
+      let
+        price = _limePrice pps
+        clamp' = clamp (price - 0.5) (price + 0.5)
+      in
+        pps { _limePrice = clamp' newPrice }
+
+lemonPrice :: Lens' ProducePrices Float
+lemonPrice = lens getter setter
+  where
+    getter = _lemonPrice
+    setter pps newPrice =
+      let
+        price = _lemonPrice pps
+        clamp' = clamp (price - 0.5) (price + 0.5)
+      in
+        pps { _lemonPrice = clamp' newPrice }
