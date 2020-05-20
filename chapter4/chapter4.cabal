@@ -1,0 +1,80 @@
+cabal-version: 1.12
+
+-- This file has been generated from package.yaml by hpack version 0.33.0.
+--
+-- see: https://github.com/sol/hpack
+--
+-- hash: ee07b1ba959a210c86fc06d8b1503940c399f3dd66a1f216767c6f9fb498ba86
+
+name:           chapter4
+version:        0.1.0.0
+description:    Please see the README on GitHub at <https://github.com/githubuser/chapter4#readme>
+homepage:       https://github.com/githubuser/chapter4#readme
+bug-reports:    https://github.com/githubuser/chapter4/issues
+author:         Author name here
+maintainer:     example@example.com
+copyright:      2020 Author name here
+license:        BSD3
+license-file:   LICENSE
+build-type:     Simple
+extra-source-files:
+    README.md
+    ChangeLog.md
+
+source-repository head
+  type: git
+  location: https://github.com/githubuser/chapter4
+
+library
+  exposed-modules:
+      Lib
+  other-modules:
+      Paths_chapter4
+  hs-source-dirs:
+      src
+  build-depends:
+      aeson
+    , base >=4.7 && <5
+    , containers
+    , lens
+    , lens-aeson
+    , mtl
+    , text
+  default-language: Haskell2010
+
+executable chapter4-exe
+  main-is: Main.hs
+  other-modules:
+      Paths_chapter4
+  hs-source-dirs:
+      app
+  ghc-options: -threaded -rtsopts -with-rtsopts=-N
+  build-depends:
+      aeson
+    , base >=4.7 && <5
+    , chapter4
+    , containers
+    , lens
+    , lens-aeson
+    , mtl
+    , text
+  default-language: Haskell2010
+
+test-suite chapter4-test
+  type: exitcode-stdio-1.0
+  main-is: Spec.hs
+  other-modules:
+      Paths_chapter4
+  hs-source-dirs:
+      test
+  ghc-options: -threaded -rtsopts -with-rtsopts=-N
+  build-depends:
+      aeson
+    , base >=4.7 && <5
+    , chapter4
+    , containers
+    , lens
+    , lens-aeson
+    , mtl
+    , text
+  default-language: Haskell2010
