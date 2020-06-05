@@ -1,7 +1,8 @@
+{-# LANGUAGE PartialTypeSignatures #-}
+{-# LANGUAGE FlexibleContexts #-}
 {-# LANGUAGE RankNTypes #-}
 {-# LANGUAGE RecordWildCards #-}
 {-# LANGUAGE TemplateHaskell #-}
-{-# LANGUAGE OverloadedStrings #-}
 
 module Lib where
 
@@ -10,7 +11,10 @@ import qualified Data.Set                      as S
 import qualified Data.Text                     as T
 import qualified Data.Map                      as M
 import           Data.Maybe                     ( maybeToList )
-import Data.Ord (comparing)
+import           Data.Ord                       ( comparing )
+import           Data.Monoid                    ( Sum(..) )
+import           Data.Function                  ( on )
+import           Data.Char                      ( isAlpha )
 
 data Role
   = Gunner
@@ -78,7 +82,7 @@ beastSizes = [(3, "Sirens"), (882, "Kraken"), (92, "Ogopogo")]
 -- >>> ("Why", "So", "Serious?") ^.. each
 -- ["Why", "So", "Serious?"]
 
-quotes :: [(T.Text, T.Text, T.Text)]
+quotes :: [(String, String, String)]
 quotes = [("Why", "So", "Serious?"), ("This", "is", "SPARTA")]
 
 -- >>> quotes ^.. each . each . each
@@ -99,23 +103,20 @@ c = (False, S.fromList ["one", "two", "three"]) ^.. _2 . folded
 -- folded :: Fold String Char
 -- (^..) :: Fold (M.Map String String) Char -> M.Map String String -> String
 d =
-  M.fromList [("Jack", "Captain" :: String), ("Will", "First Mate")]
-    ^.. folded
-    .   folded
+  M.fromList [("Jack", "Captain"), ("Will", "First Mate")] ^.. folded . folded
 
 -- 3. Fill in the blanks with the appropriate fold to get the results
 
 e = [1, 2, 3] ^.. folded
 -- [1, 2, 3]
 
-f = ("Light" :: String, "Dark") ^.. _1
+f = ("Light", "Dark") ^.. _1
 -- ["Light"]
 
 g = [("Light", "Dark"), ("Happy", "Sad")] ^.. folded . _1
 -- ["Light", "Happy"]
 
-h =
-  [("Light", "Dark" :: String), ("Happy", "Sad")] ^.. folded . folded . folded
+h = [("Light", "Dark"), ("Happy", "Sad")] ^.. folded . folded . folded
 
 i = ("Bond", "James", "Bond") ^.. each
 
@@ -167,7 +168,7 @@ l = myCrew ^.. crewNames
 
 -- 1. Fill in blanks with `folded`, `folding` or `to` (see pg 92)
 
-m = ["Yer" :: String, "a", "wizard", "cojames"] ^.. folded . folded
+m = ["Yer", "a", "wizard", "cojames"] ^.. folded . folded
 -- "Yerawizardcojames"
 
 n = [[1, 2, 3], [4, 5, 6]] ^.. folded . folding (take 2)
@@ -195,7 +196,7 @@ t = [(1, "one"), (2, "two")] ^.. folded . _2
 -- ["one", "two"]
 
 -- u wasn't in the book, it was an experiment with chat
-u = (1, "one" :: String) ^.. folding snd
+u = (1, "one") ^.. folding snd
 
 v = (Just 1, Just 2, Just 3) ^.. folding (\(a, b, c) -> [a, b, c]) . folded
 -- [1, 2, 3]
@@ -240,7 +241,7 @@ c' = S.fromList ["apricots", "apples"] ^.. folded . folding reverse
 d' = [(12, 45, 66), (91, 123, 87)] ^.. folded . _2 . folding (reverse . show)
 -- "54321"
 
-e' = [(1, "a" :: String), (2, "b"), (3, "c"), (4, "d")] ^.. folded . folding
+e' = [(1, "a"), (2, "b"), (3, "c"), (4, "d")] ^.. folded . folding
   (\(a, b) -> [ b | even a ])
 -- ["b", "d"]
 
@@ -314,7 +315,7 @@ buffy = TVShow
   , _numEpisodes = 144
   , _numSeasons  = 7
   , _criticScore = 81
-  , _actors      = [ Actor "Sarah Michelle Gellar" 1976
+  , _actors      = [ Actor "Sarah Michelle Gellar" 1977
                    , Actor "Alyson Hannigan"       1974
                    , Actor "Nicholas Brendon"      1971
                    , Actor "David Boreanaz"        1969
@@ -338,4 +339,163 @@ comparingOf l = comparing (view l)
 
 p'' = minimumByOf (folded . actors . folded) (comparingOf birthYear) tvShows
 
--- Folding with effects pg 100
+-- Folding with Effects
+
+calcAge :: Actor -> Int
+calcAge actor = 2030 - actor ^. birthYear
+
+showActor :: Actor -> String
+showActor actor = actor ^. nombre <> ": " <> show (calcAge actor)
+
+printActors :: IO ()
+printActors =
+  traverseOf_ (folded . actors . folded . to showActor) putStrLn tvShows
+
+actorCountAndAge :: Actor -> (Sum Int, Sum Int)
+actorCountAndAge actor = (Sum 1, Sum (calcAge actor))
+
+average :: (Integral b, Fractional a) => (Sum b, Sum b) -> a
+average (Sum count, Sum sum) = fromIntegral sum / fromIntegral count
+
+actorShowMap :: M.Map String Int
+actorShowMap = foldMapByOf (folded . actors . folded . nombre)
+                           (M.unionWith (+))
+                           M.empty
+                           (`M.singleton` 1)
+                           tvShows
+
+-- Exercises - Fold Actions
+
+-- 1. Fill in the blanks, see pg. 108
+
+q' = has folded []
+-- False
+
+r' = foldOf both ("yo", "thrashdin")
+-- "yothrashdin"
+
+s' = elemOf each "phone" ("E.T.", "phone", "home")
+-- True
+
+t' = minimumOf folded [5, 7, 2, 3, 13, 17, 11]
+-- Just 2
+
+u' = lastOf folded [5, 7, 2, 3, 13, 17, 11]
+-- Just 11
+
+v' = anyOf folded ((> 9) . length) ["Bulbasaur", "Charmander", "Squirtle"]
+-- True
+
+w' = findOf folded even [11, 22, 3, 5, 6]
+-- Just 22
+
+-- 2. Use an action from the list on pgs. 107-108 and any fold
+--    to receive the output from the input
+
+xIn = ["umbrella", "olives", "racecar", "hammer"]
+xOut = Just "racecar"
+x' :: Maybe String
+x' = findOf folded (\x -> x == reverse x) xIn
+
+yIn = (2, 4, 6)
+yOut = True
+y' = allOf each even yIn
+
+zIn = [(2, "I'll"), (3, "Be"), (1, "Back")]
+zOut = Just (3, "Be")
+z' = maximumByOf folded compare zIn
+
+aIn = (1, 2)
+aOut = 3
+a_ = sumOf each aIn
+
+bIn = "Do or do not, there is no try."
+bOut = Just "there"
+b_ = maximumByOf (folding words)
+                 (\x y -> countVowels x `compare` countVowels y)
+                 bIn
+ where
+  vowels      = "aeiou"
+  countVowels = foldr (\x acc -> if x `elem` vowels then acc + 1 else acc) 0
+
+-- This was in the book and looks pretty nice
+b_' = maximumByOf (folding words)
+                  (compare `on` (length . filter (`elem` ("aeiouy"))))
+
+cIn :: [String]
+cIn = ["a", "b", "c"]
+cOut = "cba"
+c_ = foldOf (folding reverse) cIn
+
+dIn = [(12, 45, 66), (91, 123, 87)]
+dOut = "54321"
+d_ = foldMapOf (folded . _2) (reverse . show) dIn
+
+eIn = [(1, "a"), (2, "b"), (3, "c"), (4, "d")]
+eOut = ["b", "d"]
+e_ = foldrOf folded (\(n, s) acc -> if even n then s : acc else acc) [] eIn
+
+-- Higher Order Folds
+
+f_ = [1, 2, 3, 4] ^.. taking 2 folded
+
+g_ = [[1, 2, 3], [10, 20, 30], [100, 200, 300]] ^.. folded . taking 2 folded
+
+g_' = [[1, 2, 3], [10, 20, 30], [100, 200, 300]] ^.. taking 2 (folded . folded)
+
+h_ = [1, 2, 3] ^.. backwards folded
+
+i_ = [1 ..] ^.. takingWhile (< 10) folded
+
+j_ = "Here's looking at you, kid" ^.. dropping 7 folded
+
+k_ = ["My Precious", "Hakuna Matata", "No problemo"] ^.. folded . taking
+  1
+  (folding words)
+
+l_ = ["My Precious", "Hakuna Matata", "No problemo"]
+  ^.. taking 1 (folded . folding words)
+
+m_ =
+  ["My Precious", "Hakuna Matata", "No problemo"]
+    ^.. folded
+    .   taking 1 (folding words)
+    .   folded
+
+n_ = sumOf (taking 2 each) (10, 50, 100)
+
+o_ = ("stressed", "guns", "evil") ^.. backwards each
+
+p_ = ("stressed", "guns", "evil") ^.. backwards each . to reverse
+
+q_ = "blink182 k9 blazeit420" ^.. folding words . droppingWhile isAlpha folded
+
+sample :: [Int]
+sample = [-10, -5, 4, 3, 8, 6, -2, 3, -5, -7]
+
+daysSinceFirstThaw = lengthOf (takingWhile (< 0) folded) sample
+
+warmestFirstFourDays = maximumOf (taking 4 folded) sample
+
+warmestAfterMax = sample ^? (dropping 1 . droppingWhile (/= 4) $ folded)
+
+freezingFinalDays = lengthOf (takingWhile (< 0) . backwards $ folded) sample
+
+firstThaw = sample ^.. (takingWhile (> 0) . droppingWhile (< 0)) folded
+
+inBetween =
+  sample
+    ^.. droppingWhile (< 0) folded
+    ^.. backwards folded
+    ^.. droppingWhile (< 0) folded
+    ^.. backwards folded
+
+-- The above works, but is definitely awkward
+-- Book has:
+
+inBetween' = sample
+  ^.. backwards (droppingWhile (< 0) (backwards (droppingWhile (< 0) folded)))
+
+trimmingOf :: (a -> Bool) -> Fold s a -> Fold s a
+trimmingOf pred =
+  backwards . droppingWhile pred . backwards . droppingWhile pred
