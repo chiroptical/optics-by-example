@@ -419,8 +419,8 @@ b_ = maximumByOf (folding words)
   countVowels = foldr (\x acc -> if x `elem` vowels then acc + 1 else acc) 0
 
 -- This was in the book and looks pretty nice
-b_' = maximumByOf (folding words)
-                  (compare `on` (length . filter (`elem` ("aeiouy"))))
+b_' =
+  maximumByOf (folding words) (compare `on` (length . filter (`elem` "aeiouy")))
 
 cIn :: [String]
 cIn = ["a", "b", "c"]
@@ -499,3 +499,119 @@ inBetween' = sample
 trimmingOf :: (a -> Bool) -> Fold s a -> Fold s a
 trimmingOf pred =
   backwards . droppingWhile pred . backwards . droppingWhile pred
+
+-- Chapter 6.5 Filtering Folds
+
+r_ = [1, 2, 3, 4] ^.. folded . filtered even
+-- [2, 4]
+
+s_ = ["apple", "passionfruit", "orange", "pomegranate"] ^.. folded . filtered
+  ((> 6) . length)
+-- ["passionfruit", "pomegranate"]
+
+data Card =
+  Card
+    { _nameCard :: String
+    , _auraCard :: Aura
+    , _holographic :: Bool
+    , _moves :: [Move]
+    } deriving (Eq, Show)
+
+data Aura
+  = Wet
+  | Hot
+  | Spark
+  | Leafy
+  deriving (Eq, Show)
+
+data Move =
+  Move
+    { _moveName :: String
+    , _movePower :: Int
+    } deriving (Eq, Show)
+
+makeLenses ''Card
+makeLenses ''Move
+
+deck =
+  [ Card "Skwortul"    Wet   False [Move "Squirt" 20]
+  , Card "Scorchander" Hot   False [Move "Scorch" 20]
+  , Card "Seedasaur"   Leafy False [Move "Allergize" 20]
+  , Card "Kapichu"     Spark False [Move "Poke" 10, Move "Zap" 30]
+  , Card "Elecdude"    Spark False [Move "Asplode" 50]
+  , Card "Garydose"    Wet   True  [Move "Gary's move" 40]
+  , Card "Moisteon"    Wet   False [Move "Soggy" 3]
+  , Card "Grasseon"    Leafy False [Move "Leaf Cut" 30]
+  , Card "Spicyeon"    Hot   False [Move "Capsaicisize" 40]
+  , Card "Sparkeon"    Spark True  [Move "Shock" 40, Move "Battery" 50]
+  ]
+
+-- How many Spark cards are in the Deck?
+t_ = lengthOf (folded . auraCard . filtered (== Spark)) deck
+
+-- How many powerful cards do I own?
+u_ = lengthOf (folded . moves . folded . movePower . filtered (> 30)) deck
+
+v_ =
+  deck
+    ^.. folded
+    .   filtered (anyOf (moves . folded . movePower) (> 40))
+    .   nameCard
+
+w_ =
+  lengthOf (folded . filtered ((== Spark) . _auraCard) . moves . folded) deck
+
+x_ =
+  deck
+    ^.. folded
+    -- . filteredBy (auraCard . filtered (==Spark))
+    .   filteredBy (auraCard . only Spark)
+    .   moves
+    .   folded
+    .   filteredBy (movePower . filtered (> 30))
+    .   moveName
+
+y_ = maximumByOf (folded . filteredBy (holographic . only True))
+                 (comparing (lengthOf moves))
+                 deck
+
+-- Exercises - Filtering
+
+-- 1. List all the cards whose name starts with 'S'
+
+z_ = deck ^.. folded . filtered ((== 'S') . head . _nameCard)
+
+-- 2. What's the lowest attack power of all moves
+
+a__ = minimumOf (folded . moves . folded . movePower) deck
+
+-- 3. What's the name of the first card which has more than one move
+
+b__ = firstOf (folded . filtered ((> 1) . length . _moves) . nameCard) deck
+b__' = firstOf
+  (folded . filteredBy (moves . filtered ((> 1) . length)) . nameCard)
+  deck
+
+-- 4. Are there any `Hot` card with a move with more than 30 attack power
+
+c__ = anyOf
+  (folded . filteredBy (auraCard . only Hot) . moves . folded . movePower)
+  (> 30)
+  deck
+
+-- List the names of all holographic card with a `Wet` aura
+
+d__ = deck ^.. folded . filteredBy (auraCard . only Wet) . filteredBy
+  (holographic . only True)
+
+e__ = sumOf
+  ( folded
+  . filteredBy (auraCard . filtered (/= Leafy))
+  . moves
+  . folded
+  . movePower
+  )
+  deck
+
+-- 6.6 Fold Laws
+-- There are none... :)

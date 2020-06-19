@@ -4,7 +4,7 @@ cabal-version: 1.12
 --
 -- see: https://github.com/sol/hpack
 --
--- hash: cc121b30050de69a4e7719032205a69648f4e213fff5fe937a1b84eacb6ef384
+-- hash: 4dbb96beb10c3a52fe702d77afdc7ff76f2213d13814331ffac2957d21e41cf5
 
 name:           chapter6
 version:        0.1.0.0
@@ -35,7 +35,7 @@ library
   build-depends:
       base >=4.7 && <5
     , containers
-    , lens
+    , lens >=4.18.0
     , text
     , transformers
   default-language: Haskell2010
@@ -51,7 +51,7 @@ executable chapter6-exe
       base >=4.7 && <5
     , chapter6
     , containers
-    , lens
+    , lens >=4.18.0
     , text
     , transformers
   default-language: Haskell2010
@@ -68,7 +68,7 @@ test-suite chapter6-test
       base >=4.7 && <5
     , chapter6
     , containers
-    , lens
+    , lens >=4.18.0
     , text
     , transformers
   default-language: Haskell2010
