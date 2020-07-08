@@ -1,11 +1,17 @@
+{-# LANGUAGE RankNTypes #-}
 {-# LANGUAGE TemplateHaskell #-}
+{-# LANGUAGE LambdaCase #-}
 
 module Lib where
 
 import           Control.Lens
+import           Control.Applicative            ( ZipList(..) )
+import           Control.Monad.Trans.State.Lazy
 import qualified Data.Map                      as M
 import           Data.Tree
 import           Data.Char
+import           Data.Either.Validation
+import           Text.Read                      ( readMaybe )
 
 -- 7.1 Introduction to Traverals
 
@@ -132,4 +138,188 @@ f' =
     %~ snd
 -- ("Strawberries", "Blueberries", "Blackberries")
 
--- 19.16 Traversal Actions
+-- 7.4 Traversal Actions
+
+g' :: Maybe (Int, Int)
+g' = traverseOf both readMaybe ("1", "2")
+
+h' = traverseOf both (\c -> [toLower c, toUpper c]) ('a', 'b')
+
+i' = traverseOf (both . traversed) (\c -> [toLower c, toUpper c]) ("ab", "cd")
+
+validateEmail :: String -> Validation [String] String
+validateEmail email | '@' `elem` email = Success email
+                    | otherwise = Failure . pure $ "missing '@': " <> email
+
+emailsCorrect =
+  [ ("Mike", "mike@tmnt.io")
+  , ("Raph", "raph@tmnt.io")
+  , ("Don" , "don@tmnt.io")
+  , ("Leo" , "leo@tmnt.io")
+  ]
+
+emailsIncorrect =
+  [ ("Mike", "mike@tmnt.io")
+  , ("Raph", "raph.io")
+  , ("Don" , "don.io")
+  , ("Leo" , "leo@tmnt.io")
+  ]
+
+j' = emailsCorrect & traverseOf (traversed . _2) validateEmail
+
+k' = emailsIncorrect & traverseOf (traversed . _2) validateEmail
+
+l' = sequenceAOf (both . traversed)
+                 ([Just "apples", Just "bananas"], [Just "oranges"])
+
+m' :: Maybe (Int, Int)
+m' = ("1", "2") & both %%~ readMaybe
+
+n' :: Maybe (Int, Int)
+n' = both readMaybe ("1", "2")
+
+-- 7.4 Exercises - Traversal Actions
+
+-- 1. Fill in the blanks, see pg. 146
+
+o' = sequenceAOf _1 (Nothing, "Rosebud")
+-- Nothing
+
+p' = sequenceAOf (traversed . _1) [("ab", 1), ("cd", 2)]
+-- [ [('a', 1 :: Int) ,('c', 2)]
+-- , [('a', 1) ,('d', 2)]
+-- , [('b', 1) ,('c', 2)]
+-- , [('b', 1) ,('d', 2)]
+-- ]
+
+q' = sequenceAOf traversed [ZipList [1, 2], ZipList [3, 4]]
+-- ZipList { getZipList = [[1, 3], [2, 4]]
+
+r' =
+  sequenceAOf (traversed . _2) [('a', ZipList [1, 2]), ('b', ZipList [3, 4])]
+-- ZipList {getZipList = [[('a',1),('b',3)],[('a',2),('b',4)]]}
+
+s' = runState result 0
+ where
+  result = traverseOf (beside traversed both)
+                      (\n -> modify (+ n) >> get)
+                      ([1, 1, 1], (1, 1))
+
+-- 2. Rewrite the following using the infix traverseOf i.e. %%~
+
+t' = ("ab", True) & _1 . traversed %%~ \c -> [toLower c, toUpper c]
+
+-- 3. Given the following definitions, write a validation function
+-- which uses %%~ to validate that the given user has an age value above
+-- zero and below 150
+
+data User =
+  User
+    { _name :: String
+    , _age :: Int
+    } deriving Show
+makeLenses ''User
+
+data Account =
+  Account
+    { _id :: String
+    , _user :: User
+    } deriving Show
+makeLenses ''Account
+
+validAccount = Account "hello" $ User "aodhneine" 25
+invalidAccount = Account "world" $ User "herrhotzenplotz" 151
+
+validateAge :: Account -> Either String Account
+validateAge = user . age %%~ \case
+  n | n > 0 && n < 150 -> Right n
+  n                    -> Left $ "Age is not possible: " <> show n
+
+-- 7.5 Custom traversals
+
+values :: Applicative f => (a -> f b) -> [a] -> f [b]
+values f = foldr (\x acc -> (:) <$> f x <*> acc) (pure [])
+
+u' = ["one", "two", "three"] ^.. values
+
+data Transaction =
+    Withdrawal { _amount :: Int }
+  | Deposit    { _amount :: Int }
+  deriving Show
+makeLenses ''Transaction
+
+newtype BankAccount =
+  BankAccount
+    { _transactions :: [Transaction]
+    } deriving Show
+makeLenses ''BankAccount
+
+aliceAccount = BankAccount [Deposit 100, Withdrawal 20, Withdrawal 10]
+
+v' = aliceAccount ^.. transactions . traversed
+
+--deposits :: Traversal' [Transaction] Int
+--deposits :: Traversal [Transaction] [Transaction] Int Int
+deposits :: Applicative f => (Int -> f Int) -> [Transaction] -> f [Transaction]
+deposits f [] = pure []
+deposits handler (Withdrawal amt : trans) =
+  (:) <$> pure (Withdrawal amt) <*> deposits handler trans
+deposits handler (Deposit amt : trans) =
+  (:) <$> (Deposit <$> handler amt) <*> deposits handler trans
+
+w' = aliceAccount ^.. transactions . deposits
+
+isDeposit :: Transaction -> Bool
+isDeposit (Deposit _) = True
+isDeposit _           = False
+
+x' = aliceAccount ^.. transactions . traversed . filtered isDeposit . amount
+
+-- Exercises - Custom Traversals
+
+-- 1. Rewrite the amount transaction lens manually using the following traversal
+
+amountT :: Traversal' Transaction Int
+-- amountT :: Traversal Transaction Transaction Int Int
+-- amountT :: Applicative f => (Int -> f Int) -> Transaction -> f Transaction
+amountT f (Withdrawal amt) = Withdrawal <$> f amt
+amountT f (Deposit    amt) = Deposit <$> f amt
+
+-- 2. Rewrite the both traversal over tuples
+
+both' :: Traversal (a, a) (b, b) a b
+-- both' :: Applicative f => (a -> f b) -> (a, a) -> f (b, b)
+both' f (x, y) = (,) <$> f x <*> f y
+
+-- 3. Write a traversal which reflects the change of balance to an account
+
+y' :: Traversal' Transaction Int
+-- y' :: Applicative f => (Int -> f Int) -> Transaction -> f Transaction
+y' f (Withdrawal amt) = Withdrawal . negate <$> f (negate amt)
+y' f (Deposit    amt) = Deposit <$> f amt
+
+-- 4. Implement left
+
+left :: Traversal (Either a b) (Either a' b) a a'
+--left :: Applicative f => (a -> f a') -> Either a b -> f (Either a' b)
+left f (Left  x) = Left <$> f x
+left _ (Right x) = pure $ Right x
+
+-- 5. Implement beside
+
+beside'
+  :: Traversal s t a b -> Traversal s' t' a b -> Traversal (s, s') (t, t') a b
+beside' left' right' handler (s, s') =
+  (,) <$> (s & left' %%~ handler) <*> (s' & right' %%~ handler)
+
+-- I originally wanted to rewrite this as
+-- beside' :: (a -> f b) -> (s, s') -> f (t, t')
+-- however, that isn't the correct signature. What it should be is:
+-- beside' ::
+--     Traversal s t a b
+--  -> Traversal s' t' a b
+--  -> (a -> f b)
+--  -> (s, s')
+--  -> f (t, t')
+-- Essentially, only rewrite the final Traversal and leave the input Traversals
+-- alone.

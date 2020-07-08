@@ -4,7 +4,7 @@ cabal-version: 1.12
 --
 -- see: https://github.com/sol/hpack
 --
--- hash: 247a60fd59705042db1abd85b1bbbafc991e1a495dcc1c10b5726b9cb07b7fa3
+-- hash: 9a192a7c52328c1864802b265e7e6783b21e7c36b76e30e79995b553bb41a702
 
 name:           chapter7
 version:        0.1.0.0
@@ -35,6 +35,7 @@ library
   build-depends:
       base >=4.7 && <5
     , containers
+    , either
     , lens >=4.18.0
     , text
     , transformers
@@ -51,6 +52,7 @@ executable chapter7-exe
       base >=4.7 && <5
     , chapter7
     , containers
+    , either
     , lens >=4.18.0
     , text
     , transformers
@@ -68,6 +70,7 @@ test-suite chapter7-test
       base >=4.7 && <5
     , chapter7
     , containers
+    , either
     , lens >=4.18.0
     , text
     , transformers
