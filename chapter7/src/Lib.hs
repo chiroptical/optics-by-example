@@ -1,3 +1,4 @@
+{-# LANGUAGE TupleSections #-}
 {-# LANGUAGE RankNTypes #-}
 {-# LANGUAGE TemplateHaskell #-}
 {-# LANGUAGE LambdaCase #-}
@@ -323,3 +324,90 @@ beside' left' right' handler (s, s') =
 --  -> f (t, t')
 -- Essentially, only rewrite the final Traversal and leave the input Traversals
 -- alone.
+
+-- 7.6 Traversal Laws
+
+z' :: [(String, String)]
+z' = traverseOf both pure ("don't", "touch")
+-- [("don't", "touch")]
+
+a_ :: Maybe (String, String)
+a_ = traverseOf both pure ("don't", "touch")
+-- Just ("don't", "touch")
+
+badTupleSnd :: Traversal (Int, a) (Int, b) a b
+--badTupleSnd :: (a -> f b) -> (Int, a) -> f (Int, b)
+badTupleSnd h (n, a) =
+  (,) <$> pure (n + 1) <*> h a
+
+-- Identity law
+-- traverseOf myTrav pure x ~ pure x
+
+-- Composition Law
+-- x & myTrav %~ f & myTrav %~ g ~ x & myTrav %~ (g . f)
+
+-- Exercises - Traversal Laws
+
+-- 1. `worded` is law-breaking. Which law does it break? Provide an example.
+
+b_ = undefined
+
+-- 2. Write a Traversal which breaks the first law
+
+c_ :: String -> Traversal (String, a) (String, b) a b
+c_ entry h (log, a) = (,) <$> pure (log ++ entry) <*> h a
+
+-- 3. Write a Traversal which breaks the second law
+
+d_ :: Traversal String String String String
+d_ h xs = h (filter (=='x') xs)
+
+-- 4. For each of the traversals, are they lawful? If not, come up with
+-- counter-example: taking, beside, each, lined, traversed
+
+-- Check test/Spec.hs where we tried to use `lens-properties` to
+-- check the laws
+
+-- 7.7 Advanced Manipulation
+
+e_ = [('a', 1), ('b', 2), ('c', 3)] ^. partsOf (traversed . _1)
+
+f_ = [('a', 1), ('b', 2), ('c', 3)] & partsOf (traversed . _1) .~ "cat"
+
+g_ = [('a', 1), ('b', 2), ('c', 3)] & partsOf (traversed . _1) .~ "leopard"
+
+h_ = [('a', 1), ('b', 2), ('c', 3)] & partsOf (traversed . _1) .~ "?"
+
+-- Exercises - `partsOf`
+
+-- Fill in the blanks
+
+i_ = [1, 2, 3, 4] ^. partsOf (traversed . filtered even)
+-- [2, 4]
+
+j_ = ["Aardvark", "Bandicoot", "Capybara"] ^. traversed . partsOf (taking 3 traversed)
+-- "AarBanCap"
+
+-- k_ :: [Int]
+k_ = ([1, 2], M.fromList [('a', 3), ('b', 4)]) ^. partsOf (beside traversed traversed)
+-- [1, 2, 3, 4]
+
+l_ = [1, 2, 3, 4] & partsOf (traversed . filtered even) .~ [20, 40]
+-- [1, 20, 3, 40]
+
+m_ = ["Aardvark", "Bandicoot", "Capybara"] & partsOf (traversed . traversed) .~ "Kangaroo"
+-- ["Kangaroo","Bandicoot","Capybara"]
+
+n_ = ["Aardvark", "Bandicoot", "Capybara"] & partsOf (traversed . traversed) .~ "Ant"
+-- ["Antdvark", "Bandicoot", "Capybara"]
+
+o_ = M.fromList [('a', 'a'), ('b', 'b'), ('c', 'c')] & partsOf traversed
+  %~ \xs -> tail . take (length xs + 1) $ cycle xs
+
+p_ = ('a', 'b', 'c') & partsOf each %~ reverse
+
+q_ = [1, 2, 3, 4, 5, 6] & partsOf (taking 3 traversed) %~ reverse
+-- [3,2,1,4,5,6]
+
+r_ = ('a', 'b', 'c') & unsafePartsOf each %~ \xs -> fmap (xs,) xs
+-- (("abc",'a'),("abc",'b'),("abc",'c'))

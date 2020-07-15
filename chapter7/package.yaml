@@ -10,6 +10,8 @@ tests:
     - -with-rtsopts=-N
     dependencies:
     - chapter7
+    - QuickCheck
+    - lens-properties
 copyright: 2020 Author name here
 maintainer: example@example.com
 dependencies:
