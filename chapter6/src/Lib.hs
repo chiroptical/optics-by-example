@@ -1,20 +1,20 @@
-{-# LANGUAGE PartialTypeSignatures #-}
 {-# LANGUAGE FlexibleContexts #-}
+{-# LANGUAGE PartialTypeSignatures #-}
 {-# LANGUAGE RankNTypes #-}
 {-# LANGUAGE RecordWildCards #-}
 {-# LANGUAGE TemplateHaskell #-}
 
 module Lib where
 
-import           Control.Lens
-import qualified Data.Set                      as S
-import qualified Data.Text                     as T
-import qualified Data.Map                      as M
-import           Data.Maybe                     ( maybeToList )
-import           Data.Ord                       ( comparing )
-import           Data.Monoid                    ( Sum(..) )
-import           Data.Function                  ( on )
-import           Data.Char                      ( isAlpha )
+import Control.Lens
+import Data.Char (isAlpha)
+import Data.Function (on)
+import qualified Data.Map as M
+import Data.Maybe (maybeToList)
+import Data.Monoid (Sum (..))
+import Data.Ord (comparing)
+import qualified Data.Set as S
+import qualified Data.Text as T
 
 data Role
   = Gunner
@@ -24,22 +24,23 @@ data Role
   | FirstMate
   deriving (Show, Eq, Ord)
 
-data CrewMember =
-  CrewMember
-    { _name :: String
-    , _role :: Role
-    , _talents :: [String]
-    } deriving (Show, Eq, Ord)
+data CrewMember = CrewMember
+  { _name :: String,
+    _role :: Role,
+    _talents :: [String]
+  }
+  deriving (Show, Eq, Ord)
 
 makeLenses ''CrewMember
 
 roster :: S.Set CrewMember
-roster = S.fromList
-  [ CrewMember "Grumpy Jappie"     Gunner       ["Juggling", "Arbitrage"]
-  , CrewMember "Long-John Newmaid" PowderMonkey ["Origiami"]
-  , CrewMember "Salty Chiroptical" PowderMonkey ["Charcuterie"]
-  , CrewMember "One-eyed Lumie"    Navigator    []
-  ]
+roster =
+  S.fromList
+    [ CrewMember "Grumpy Jappie" Gunner ["Juggling", "Arbitrage"],
+      CrewMember "Long-John Newmaid" PowderMonkey ["Origiami"],
+      CrewMember "Salty Chiroptical" PowderMonkey ["Charcuterie"],
+      CrewMember "One-eyed Lumie" Navigator []
+    ]
 
 crewMembers :: Fold (S.Set CrewMember) CrewMember
 crewMembers = folded
@@ -108,12 +109,15 @@ d =
 -- 3. Fill in the blanks with the appropriate fold to get the results
 
 e = [1, 2, 3] ^.. folded
+
 -- [1, 2, 3]
 
 f = ("Light", "Dark") ^.. _1
+
 -- ["Light"]
 
 g = [("Light", "Dark"), ("Happy", "Sad")] ^.. folded . _1
+
 -- ["Light", "Happy"]
 
 h = [("Light", "Dark"), ("Happy", "Sad")] ^.. folded . folded . folded
@@ -122,34 +126,35 @@ i = ("Bond", "James", "Bond") ^.. each
 
 -- 6.2 Custom Folds
 
-newtype Name =
-  Name
-    { getName :: String
-    } deriving Show
+newtype Name = Name
+  { getName :: String
+  }
+  deriving (Show)
 
-data ShipCrew =
-  ShipCrew
-    { _shipName :: Name
-    , _captain :: Name
-    , _firstMate :: Name
-    , _conscripts :: [Name]
-    } deriving Show
+data ShipCrew = ShipCrew
+  { _shipName :: Name,
+    _captain :: Name,
+    _firstMate :: Name,
+    _conscripts :: [Name]
+  }
+  deriving (Show)
 
 makeLenses ''ShipCrew
 
 crewMembersFold :: Fold ShipCrew Name
 crewMembersFold = folding folder
- where
-  folder :: ShipCrew -> [Name]
-  folder ShipCrew {..} = _captain : _firstMate : _conscripts
+  where
+    folder :: ShipCrew -> [Name]
+    folder ShipCrew {..} = _captain : _firstMate : _conscripts
 
 myCrew :: ShipCrew
-myCrew = ShipCrew
-  { _shipName   = Name "Purple Ethanol"
-  , _captain    = Name "Grumpy Oren"
-  , _firstMate  = Name "Long-John Orc"
-  , _conscripts = [Name "One-eyed Whale", Name "Filty Chiroptical"]
-  }
+myCrew =
+  ShipCrew
+    { _shipName = Name "Purple Ethanol",
+      _captain = Name "Grumpy Oren",
+      _firstMate = Name "Long-John Orc",
+      _conscripts = [Name "One-eyed Whale", Name "Filty Chiroptical"]
+    }
 
 j :: [Name]
 j = myCrew ^.. crewMembersFold
@@ -158,8 +163,9 @@ k :: [String]
 k = myCrew ^.. crewMembersFold . to getName
 
 crewNames :: Fold ShipCrew String
-crewNames = folding (\s -> s ^.. captain <> s ^.. firstMate <> s ^. conscripts)
-  . to getName
+crewNames =
+  folding (\s -> s ^.. captain <> s ^.. firstMate <> s ^. conscripts)
+    . to getName
 
 l :: [String]
 l = myCrew ^.. crewNames
@@ -169,103 +175,135 @@ l = myCrew ^.. crewNames
 -- 1. Fill in blanks with `folded`, `folding` or `to` (see pg 92)
 
 m = ["Yer", "a", "wizard", "cojames"] ^.. folded . folded
+
 -- "Yerawizardcojames"
 
 n = [[1, 2, 3], [4, 5, 6]] ^.. folded . folding (take 2)
+
 -- [1, 2, 4, 5]
 
 o = [[1, 2, 3], [4, 5, 6]] ^.. folded . to (take 2)
+
 -- [[1, 2], [4, 5]]
 
 p = ["lumie", "otto", "hannah"] ^.. folded . to reverse
+
 -- ["lumie", "otto", "hannah"]
 
 q = ("abc", "def") ^.. folding (\(a, b) -> [a, b]) . to reverse . folded
+
 -- "cbafed"
 
 -- 2. Fill in the blank with a path of folds which result in the answer
 -- avoid partial functions and fmap
 
 r = [1 .. 5] ^.. folded . to (* 100)
+
 -- [100, 200, 300, 400, 500]
 
 s = (1, 2) ^.. folding (\(a, b) -> [a, b])
+
 -- [1, 2]
 
 t = [(1, "one"), (2, "two")] ^.. folded . _2
+
 -- ["one", "two"]
 
 -- u wasn't in the book, it was an experiment with chat
 u = (1, "one") ^.. folding snd
 
 v = (Just 1, Just 2, Just 3) ^.. folding (\(a, b, c) -> [a, b, c]) . folded
+
 -- [1, 2, 3]
 
 w = [Left 1, Right 2, Left 3] ^.. folded . folded
+
 -- [2]
 
 x =
   [([1, 2], [3, 4]), ([5, 6], [7, 8])]
     ^.. folded
-    .   folding (\(a, b) -> [a, b])
-    .   folded
+      . folding (\(a, b) -> [a, b])
+      . folded
+
 -- [1, 2, 3, 4, 5, 6, 7, 8]
 
 y = [1, 2, 3, 4] ^.. folded . to (\x -> if odd x then Left x else Right x)
+
 -- [Left 1, Right 2, Left 3, Right 4]
 
 z = [(1, (2, 3)), (4, (5, 6))] ^.. folded . folding (\(a, (b, c)) -> [a, b, c])
+
 -- [1, 2, 3, 4, 5, 6]
 
 eitherToList :: Either a b -> [b]
-eitherToList (Left  _) = []
+eitherToList (Left _) = []
 eitherToList (Right x) = [x]
 
 a' =
   [(Just 1, Left "one"), (Nothing, Right 2)]
     ^.. folded
-    .   folding (\(a, b) -> [maybeToList a, eitherToList b])
-    .   folded
+      . folding (\(a, b) -> [maybeToList a, eitherToList b])
+      . folded
+
 -- a'' comes from the anwers on pg 363 and is a really cool implementation
-a'' = [(Just 1, Left "one"), (Nothing, Right 2)] ^.. folded . folding
-  (\(a, b) -> a ^.. folded <> b ^.. folded)
+a'' =
+  [(Just 1, Left "one"), (Nothing, Right 2)]
+    ^.. folded
+      . folding
+        (\(a, b) -> a ^.. folded <> b ^.. folded)
+
 -- [1, 2]
 
 b' =
   [(1, "one"), (2, "two")] ^.. folded . folding (\(a, b) -> [Left a, Right b])
+
 -- [Left 1, Right "one", Left 2, Right "two"]
 
 c' = S.fromList ["apricots", "apples"] ^.. folded . folding reverse
+
 -- "selppastocirpa"
 
 d' = [(12, 45, 66), (91, 123, 87)] ^.. folded . _2 . folding (reverse . show)
+
 -- "54321"
 
-e' = [(1, "a"), (2, "b"), (3, "c"), (4, "d")] ^.. folded . folding
-  (\(a, b) -> [ b | even a ])
+e' =
+  [(1, "a"), (2, "b"), (3, "c"), (4, "d")]
+    ^.. folded
+      . folding
+        (\(a, b) -> [b | even a])
+
 -- ["b", "d"]
 
 -- 6.3 Fold Actions
 
 f' = elemOf folded 3 [1, 2, 3, 4]
+
 -- True
 
 g' = anyOf folded even [1, 2, 3, 4]
+
 -- True
 
 h' = findOf folded even [1, 2, 3, 4]
+
 -- Just 2
 
 i' = findOf folded (> 10) [1, 2, 3, 4]
+
 -- Nothing
 
 j' = has folded []
+
 -- False
 
 k' = has folded [1]
+
 -- True
 
 l' = hasn't folded []
+
 -- True
 
 -- lengthOf
@@ -276,52 +314,56 @@ l' = hasn't folded []
 -- minimumOf
 -- maximumOf
 
-data Actor =
-  Actor
-    { _nombre :: String
-    , _birthYear :: Int
-    } deriving (Show, Eq)
+data Actor = Actor
+  { _nombre :: String,
+    _birthYear :: Int
+  }
+  deriving (Show, Eq)
 
 makeLenses ''Actor
 
-data TVShow =
-  TVShow
-    { _title :: String
-    , _numEpisodes :: Int
-    , _numSeasons :: Int
-    , _criticScore :: Double
-    , _actors :: [Actor]
-    } deriving (Show, Eq)
+data TVShow = TVShow
+  { _title :: String,
+    _numEpisodes :: Int,
+    _numSeasons :: Int,
+    _criticScore :: Double,
+    _actors :: [Actor]
+  }
+  deriving (Show, Eq)
 
 makeLenses ''TVShow
 
 howIMetYourMother :: TVShow
-howIMetYourMother = TVShow
-  { _title       = "How I Met Your Mother"
-  , _numEpisodes = 208
-  , _numSeasons  = 9
-  , _criticScore = 8398
-  , _actors      = [ Actor "Josh Radnor"         1974
-                   , Actor "Cobie Smulders"      1982
-                   , Actor "Neil Patrick Harris" 1973
-                   , Actor "Alyson Hannigan"     1974
-                   , Actor "Jason Segel"         1980
-                   ]
-  }
+howIMetYourMother =
+  TVShow
+    { _title = "How I Met Your Mother",
+      _numEpisodes = 208,
+      _numSeasons = 9,
+      _criticScore = 8398,
+      _actors =
+        [ Actor "Josh Radnor" 1974,
+          Actor "Cobie Smulders" 1982,
+          Actor "Neil Patrick Harris" 1973,
+          Actor "Alyson Hannigan" 1974,
+          Actor "Jason Segel" 1980
+        ]
+    }
 
 buffy :: TVShow
-buffy = TVShow
-  { _title       = "Buffy the Vampire Slayer"
-  , _numEpisodes = 144
-  , _numSeasons  = 7
-  , _criticScore = 81
-  , _actors      = [ Actor "Sarah Michelle Gellar" 1977
-                   , Actor "Alyson Hannigan"       1974
-                   , Actor "Nicholas Brendon"      1971
-                   , Actor "David Boreanaz"        1969
-                   , Actor "Anthony Head"          1954
-                   ]
-  }
+buffy =
+  TVShow
+    { _title = "Buffy the Vampire Slayer",
+      _numEpisodes = 144,
+      _numSeasons = 7,
+      _criticScore = 81,
+      _actors =
+        [ Actor "Sarah Michelle Gellar" 1977,
+          Actor "Alyson Hannigan" 1974,
+          Actor "Nicholas Brendon" 1971,
+          Actor "David Boreanaz" 1969,
+          Actor "Anthony Head" 1954
+        ]
+    }
 
 tvShows :: [TVShow]
 tvShows = [howIMetYourMother, buffy]
@@ -358,65 +400,86 @@ average :: (Integral b, Fractional a) => (Sum b, Sum b) -> a
 average (Sum count, Sum sum) = fromIntegral sum / fromIntegral count
 
 actorShowMap :: M.Map String Int
-actorShowMap = foldMapByOf (folded . actors . folded . nombre)
-                           (M.unionWith (+))
-                           M.empty
-                           (`M.singleton` 1)
-                           tvShows
+actorShowMap =
+  foldMapByOf
+    (folded . actors . folded . nombre)
+    (M.unionWith (+))
+    M.empty
+    (`M.singleton` 1)
+    tvShows
 
 -- Exercises - Fold Actions
 
 -- 1. Fill in the blanks, see pg. 108
 
 q' = has folded []
+
 -- False
 
 r' = foldOf both ("yo", "thrashdin")
+
 -- "yothrashdin"
 
 s' = elemOf each "phone" ("E.T.", "phone", "home")
+
 -- True
 
 t' = minimumOf folded [5, 7, 2, 3, 13, 17, 11]
+
 -- Just 2
 
 u' = lastOf folded [5, 7, 2, 3, 13, 17, 11]
+
 -- Just 11
 
 v' = anyOf folded ((> 9) . length) ["Bulbasaur", "Charmander", "Squirtle"]
+
 -- True
 
 w' = findOf folded even [11, 22, 3, 5, 6]
+
 -- Just 22
 
 -- 2. Use an action from the list on pgs. 107-108 and any fold
 --    to receive the output from the input
 
 xIn = ["umbrella", "olives", "racecar", "hammer"]
+
 xOut = Just "racecar"
+
 x' :: Maybe String
 x' = findOf folded (\x -> x == reverse x) xIn
 
 yIn = (2, 4, 6)
+
 yOut = True
+
 y' = allOf each even yIn
 
 zIn = [(2, "I'll"), (3, "Be"), (1, "Back")]
+
 zOut = Just (3, "Be")
+
 z' = maximumByOf folded compare zIn
 
 aIn = (1, 2)
+
 aOut = 3
+
 a_ = sumOf each aIn
 
 bIn = "Do or do not, there is no try."
+
 bOut = Just "there"
-b_ = maximumByOf (folding words)
-                 (\x y -> countVowels x `compare` countVowels y)
-                 bIn
- where
-  vowels      = "aeiou"
-  countVowels = foldr (\x acc -> if x `elem` vowels then acc + 1 else acc) 0
+
+b_ =
+  maximumByOf
+    (folding words)
+    (\x y -> countVowels x `compare` countVowels y)
+    bIn
+  where
+    vowels = "aeiou"
+    countVowels = foldr (\x acc -> if x `elem` vowels then acc + 1 else acc) 0
 
 -- This was in the book and looks pretty nice
 b_' =
@@ -424,15 +487,21 @@ b_' =
 
 cIn :: [String]
 cIn = ["a", "b", "c"]
+
 cOut = "cba"
+
 c_ = foldOf (folding reverse) cIn
 
 dIn = [(12, 45, 66), (91, 123, 87)]
+
 dOut = "54321"
+
 d_ = foldMapOf (folded . _2) (reverse . show) dIn
 
 eIn = [(1, "a"), (2, "b"), (3, "c"), (4, "d")]
+
 eOut = ["b", "d"]
+
 e_ = foldrOf folded (\(n, s) acc -> if even n then s : acc else acc) [] eIn
 
 -- Higher Order Folds
@@ -449,18 +518,22 @@ i_ = [1 ..] ^.. takingWhile (< 10) folded
 
 j_ = "Here's looking at you, kid" ^.. dropping 7 folded
 
-k_ = ["My Precious", "Hakuna Matata", "No problemo"] ^.. folded . taking
-  1
-  (folding words)
+k_ =
+  ["My Precious", "Hakuna Matata", "No problemo"]
+    ^.. folded
+      . taking
+        1
+        (folding words)
 
-l_ = ["My Precious", "Hakuna Matata", "No problemo"]
-  ^.. taking 1 (folded . folding words)
+l_ =
+  ["My Precious", "Hakuna Matata", "No problemo"]
+    ^.. taking 1 (folded . folding words)
 
 m_ =
   ["My Precious", "Hakuna Matata", "No problemo"]
     ^.. folded
-    .   taking 1 (folding words)
-    .   folded
+      . taking 1 (folding words)
+      . folded
 
 n_ = sumOf (taking 2 each) (10, 50, 100)
 
@@ -493,8 +566,9 @@ inBetween =
 -- The above works, but is definitely awkward
 -- Book has:
 
-inBetween' = sample
-  ^.. backwards (droppingWhile (< 0) (backwards (droppingWhile (< 0) folded)))
+inBetween' =
+  sample
+    ^.. backwards (droppingWhile (< 0) (backwards (droppingWhile (< 0) folded)))
 
 trimmingOf :: (a -> Bool) -> Fold s a -> Fold s a
 trimmingOf pred =
@@ -503,19 +577,24 @@ trimmingOf pred =
 -- Chapter 6.5 Filtering Folds
 
 r_ = [1, 2, 3, 4] ^.. folded . filtered even
+
 -- [2, 4]
 
-s_ = ["apple", "passionfruit", "orange", "pomegranate"] ^.. folded . filtered
-  ((> 6) . length)
+s_ =
+  ["apple", "passionfruit", "orange", "pomegranate"]
+    ^.. folded
+      . filtered
+        ((> 6) . length)
+
 -- ["passionfruit", "pomegranate"]
 
-data Card =
-  Card
-    { _nameCard :: String
-    , _auraCard :: Aura
-    , _holographic :: Bool
-    , _moves :: [Move]
-    } deriving (Eq, Show)
+data Card = Card
+  { _nameCard :: String,
+    _auraCard :: Aura,
+    _holographic :: Bool,
+    _moves :: [Move]
+  }
+  deriving (Eq, Show)
 
 data Aura
   = Wet
@@ -524,26 +603,26 @@ data Aura
   | Leafy
   deriving (Eq, Show)
 
-data Move =
-  Move
-    { _moveName :: String
-    , _movePower :: Int
-    } deriving (Eq, Show)
+data Move = Move
+  { _moveName :: String,
+    _movePower :: Int
+  }
+  deriving (Eq, Show)
 
 makeLenses ''Card
 makeLenses ''Move
 
 deck =
-  [ Card "Skwortul"    Wet   False [Move "Squirt" 20]
-  , Card "Scorchander" Hot   False [Move "Scorch" 20]
-  , Card "Seedasaur"   Leafy False [Move "Allergize" 20]
-  , Card "Kapichu"     Spark False [Move "Poke" 10, Move "Zap" 30]
-  , Card "Elecdude"    Spark False [Move "Asplode" 50]
-  , Card "Garydose"    Wet   True  [Move "Gary's move" 40]
-  , Card "Moisteon"    Wet   False [Move "Soggy" 3]
-  , Card "Grasseon"    Leafy False [Move "Leaf Cut" 30]
-  , Card "Spicyeon"    Hot   False [Move "Capsaicisize" 40]
-  , Card "Sparkeon"    Spark True  [Move "Shock" 40, Move "Battery" 50]
+  [ Card "Skwortul" Wet False [Move "Squirt" 20],
+    Card "Scorchander" Hot False [Move "Scorch" 20],
+    Card "Seedasaur" Leafy False [Move "Allergize" 20],
+    Card "Kapichu" Spark False [Move "Poke" 10, Move "Zap" 30],
+    Card "Elecdude" Spark False [Move "Asplode" 50],
+    Card "Garydose" Wet True [Move "Gary's move" 40],
+    Card "Moisteon" Wet False [Move "Soggy" 3],
+    Card "Grasseon" Leafy False [Move "Leaf Cut" 30],
+    Card "Spicyeon" Hot False [Move "Capsaicisize" 40],
+    Card "Sparkeon" Spark True [Move "Shock" 40, Move "Battery" 50]
   ]
 
 -- How many Spark cards are in the Deck?
@@ -555,8 +634,8 @@ u_ = lengthOf (folded . moves . folded . movePower . filtered (> 30)) deck
 v_ =
   deck
     ^.. folded
-    .   filtered (anyOf (moves . folded . movePower) (> 40))
-    .   nameCard
+      . filtered (anyOf (moves . folded . movePower) (> 40))
+      . nameCard
 
 w_ =
   lengthOf (folded . filtered ((== Spark) . _auraCard) . moves . folded) deck
@@ -564,16 +643,18 @@ w_ =
 x_ =
   deck
     ^.. folded
-    -- . filteredBy (auraCard . filtered (==Spark))
-    .   filteredBy (auraCard . only Spark)
-    .   moves
-    .   folded
-    .   filteredBy (movePower . filtered (> 30))
-    .   moveName
+      -- . filteredBy (auraCard . filtered (==Spark))
+      . filteredBy (auraCard . only Spark)
+      . moves
+      . folded
+      . filteredBy (movePower . filtered (> 30))
+      . moveName
 
-y_ = maximumByOf (folded . filteredBy (holographic . only True))
-                 (comparing (lengthOf moves))
-                 deck
+y_ =
+  maximumByOf
+    (folded . filteredBy (holographic . only True))
+    (comparing (lengthOf moves))
+    deck
 
 -- Exercises - Filtering
 
@@ -588,30 +669,37 @@ a__ = minimumOf (folded . moves . folded . movePower) deck
 -- 3. What's the name of the first card which has more than one move
 
 b__ = firstOf (folded . filtered ((> 1) . length . _moves) . nameCard) deck
-b__' = firstOf
-  (folded . filteredBy (moves . filtered ((> 1) . length)) . nameCard)
-  deck
+
+b__' =
+  firstOf
+    (folded . filteredBy (moves . filtered ((> 1) . length)) . nameCard)
+    deck
 
 -- 4. Are there any `Hot` card with a move with more than 30 attack power
 
-c__ = anyOf
-  (folded . filteredBy (auraCard . only Hot) . moves . folded . movePower)
-  (> 30)
-  deck
+c__ =
+  anyOf
+    (folded . filteredBy (auraCard . only Hot) . moves . folded . movePower)
+    (> 30)
+    deck
 
 -- List the names of all holographic card with a `Wet` aura
 
-d__ = deck ^.. folded . filteredBy (auraCard . only Wet) . filteredBy
-  (holographic . only True)
-
-e__ = sumOf
-  ( folded
-  . filteredBy (auraCard . filtered (/= Leafy))
-  . moves
-  . folded
-  . movePower
-  )
+d__ =
   deck
+    ^.. folded . filteredBy (auraCard . only Wet)
+      . filteredBy
+        (holographic . only True)
+
+e__ =
+  sumOf
+    ( folded
+        . filteredBy (auraCard . filtered (/= Leafy))
+        . moves
+        . folded
+        . movePower
+    )
+    deck
 
 -- 6.6 Fold Laws
 -- There are none... :)
