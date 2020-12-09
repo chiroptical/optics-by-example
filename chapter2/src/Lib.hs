@@ -1,36 +1,34 @@
-{-# LANGUAGE PartialTypeSignatures #-}
-{-# LANGUAGE TemplateHaskell #-}
-{-# LANGUAGE FlexibleInstances #-}
 {-# LANGUAGE FlexibleContexts #-}
+{-# LANGUAGE FlexibleInstances #-}
+{-# LANGUAGE InstanceSigs #-}
+{-# LANGUAGE PartialTypeSignatures #-}
 {-# LANGUAGE RankNTypes #-}
 {-# LANGUAGE ScopedTypeVariables #-}
+{-# LANGUAGE TemplateHaskell #-}
 {-# LANGUAGE TypeApplications #-}
 {-# LANGUAGE TypeFamilies #-}
-{-# LANGUAGE InstanceSigs #-}
 
 module Lib where
 
-import Control.Lens
 import Control.Applicative
+import Control.Lens
+import Data.Bits.Lens (bitAt)
 import Data.Char
+import Data.Data.Lens (biplate)
+import Data.Either (lefts)
+import Data.List (sort)
 import qualified Data.Map as M
 import qualified Data.Set as S
 import qualified Data.Text as T
-import           Data.Either                    ( lefts )
 import Numeric.Lens (negated)
-import Data.Data.Lens (biplate)
-import Data.List (sort)
-import Data.Bits.Lens (bitAt)
 
-newtype Address =
-  Address
-    { country :: String
-    }
+newtype Address = Address
+  { country :: String
+  }
 
-newtype Person =
-  Person
-    { address :: Address
-    }
+newtype Person = Person
+  { address :: Address
+  }
 
 viewCountry :: Person -> String
 -- viewCountry Person { address = Address { country = x } } = x
@@ -80,28 +78,33 @@ sumWithEither = sum . fmap (either negate id)
 
 sumWithOptic :: [Either Int Int] -> Int
 sumWithOptic = sumOf (folded . beside negated id)
+
 -- `beside` applies the function to the `Left` (`negated` here) and to the `Right`
 -- (`id` here). They are folded to `[-1, 10, -2, 30]` and summed up.
 
 thing :: (Maybe Int, Either (String, [Int]) String)
 thing = (Just 3, Left ("hello", [13, 15, 17])) & biplate *~ (100 :: Int)
+
 -- `biplate` is a wild function. It will find any `Int` and multiply by 100
 
 thing' :: [Integer]
 thing' = [1, 2, 3, 4, 5] & partsOf (traversed . filtered even) %~ reverse
+
 -- This reverse sorts the even numbers in place
 
 thing'' :: (String, String, String)
 thing'' = ("one", "two", "three") & partsOf (each . traversed) %~ sort
+
 -- This sorts the characters in place but preserves the structure
 
 thing_ :: [Int]
 thing_ = [1, 2, 3, 4] & traversed . bitAt 1 %~ not
 
-prompts = ( "What is your name?"
-          , "What is your quest?"
-          , "What is your favourite color?"
-          )
+prompts =
+  ( "What is your name?",
+    "What is your quest?",
+    "What is your favourite color?"
+  )
 
 thing__ :: IO (String, String, String)
 thing__ = prompts & each %%~ (\prompt -> putStrLn prompt >> getLine)
