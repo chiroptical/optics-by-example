@@ -2,13 +2,15 @@
 {-# LANGUAGE RankNTypes #-}
 {-# LANGUAGE ScopedTypeVariables #-}
 {-# LANGUAGE TemplateHaskell #-}
+{-# LANGUAGE TypeApplications #-}
 
 module Lib where
 
 import Control.Lens
-import Data.List (stripPrefix)
-import Data.List.Split (chunksOf)
+import Data.List
 import Data.Monoid (Sum (Sum))
+import Data.Set (Set)
+import qualified Data.Set as S
 
 a = Left "message" ^? _Left
 
@@ -190,16 +192,150 @@ _Cycles n = prism' embed match
     --
     -- TODO: Can we use (#) to materialize the correct cycle and compare it to
     -- the given cycle
+    -- match :: [a] -> Maybe [a]
+    -- match xs =
+    --   let chunks = chunksOf itemsPerChunk xs
+    --       isCorrectLength = length chunks == n
+    --       itemsPerChunk = length xs `div` n
+    --    in if n == 0 || not isCorrectLength
+    --         then Nothing
+    --         else case chunks of
+    --           [] -> Nothing
+    --           (h : t) ->
+    --             if all (h ==) t
+    --               then Just h
+    --               else Nothing
     match :: [a] -> Maybe [a]
     match xs =
-      let chunks = chunksOf itemsPerChunk xs
-          isCorrectLength = length chunks == n
-          itemsPerChunk = length xs `div` n
-       in if n == 0 || not isCorrectLength
-            then Nothing
-            else case chunks of
-              [] -> Nothing
-              (h : t) ->
-                if all (h ==) t
-                  then Just h
-                  else Nothing
+      let subunitLength = length xs `div` n
+          subunit = take subunitLength xs
+          result = _Cycles n # subunit
+       in if subunitLength /= 0 && xs == result
+            then Just subunit
+            else Nothing
+
+-- Section 9.3: Laws
+
+-- Review-Preview Law
+a' = (_Cycles 3 # "derp") ^? _Cycles 3
+
+-- Just "derp"
+
+-- Prism Complement
+b' =
+  let s :: Either String String
+      s = Left "a"
+      Just a = s ^? _Left
+      s' = _Left # a
+   in s == s'
+
+c' =
+  let s :: String
+      s = "[1, 2, 3]"
+      Just a = s ^? _Show @[Int]
+      s' = _Show # a
+   in -- although these are technically the same,
+      -- the string representations are different
+      -- "[1, 2, 3]" versus "[1,2,3]"
+      s == s'
+
+-- Pass-through Reversion
+
+d' =
+  let s :: Maybe Int
+      s = Nothing
+      t :: Maybe String
+      Left t = matching _Just s
+      s' :: Maybe Int
+      Left s' = matching _Just t
+   in s == s'
+
+_Contains :: forall a. Ord a => a -> Prism' (Set a) (Set a)
+_Contains x = prism' embed match
+  where
+    embed :: Set a -> Set a
+    embed = S.insert x
+    match :: Set a -> Maybe (Set a)
+    match set =
+      if S.member x set
+        then Just $ S.delete x set
+        else Nothing
+
+-- This lens is unlawful because it doesn't respect the review-preview law
+e' = (_Contains 2 # S.fromList [1, 2]) ^? _Contains 2
+
+-- S.fromList [1]
+
+_Singleton :: forall a. Prism' [a] a
+_Singleton = prism' embed match
+  where
+    embed :: a -> [a]
+    embed a = [a]
+    match :: [a] -> Maybe a
+    match [a] = Just a
+    match _ = Nothing
+
+-- Passes review-preview
+f' = (_Singleton # 0) ^? _Singleton
+
+-- Passes prism complement law
+g' =
+  let s :: [Integer]
+      s = [0]
+      Just a = s ^? _Singleton
+      s' = _Singleton # a
+   in s == s'
+
+-- Pass through reversion (only one type parameter)
+h' =
+  let s :: [Integer]
+      s = []
+      t :: [Integer]
+      Left t = matching _Singleton s
+      s' :: [Integer]
+      Left s' = matching _Singleton t
+   in s == s'
+
+-- 9.4 Simple HTTP Server
+
+requestPath :: Lens' Request Path
+requestPath = lens getter setter
+  where
+    getter (Post p _) = p
+    getter (Get p) = p
+    getter (Delete p) = p
+    setter (Post _ body) p = Post p body
+    setter (Get _) p = Get p
+    setter (Delete _) p = Delete p
+
+serveRequest :: Request -> String
+serveRequest = const "404 Not Found"
+
+_PathPrefix :: String -> Prism' Request Request
+_PathPrefix prefix = prism' embed match
+  where
+    embed :: Request -> Request
+    embed req = req & requestPath . path %~ (prefix :)
+    match :: Request -> Maybe Request
+    match req
+      | has (requestPath . path . _head . only prefix) req = Just (req & requestPath . path %~ drop 1)
+      | otherwise = Nothing
+
+safeTail :: [a] -> [a]
+safeTail = tail & outside _Empty .~ const []
+
+userHandler :: Request -> String
+userHandler req =
+  "User Handler! Remaining path: "
+    <> intercalate "/" (req ^. requestPath . path)
+
+postsHandler :: Request -> String
+postsHandler req =
+  "Posts Handler! Remaining path: "
+    <> intercalate "/" (req ^. requestPath . path)
+
+server :: Request -> String
+server =
+  serveRequest
+    & outside (_PathPrefix "users") .~ userHandler
+    & outside (_PathPrefix "posts") .~ postsHandler
