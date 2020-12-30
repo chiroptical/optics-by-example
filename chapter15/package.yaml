@@ -27,6 +27,7 @@ dependencies:
 - lens-aeson
 - text
 - bytestring
+- containers
 
 library:
   source-dirs: src
